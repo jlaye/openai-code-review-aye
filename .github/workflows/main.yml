@@ -23,7 +23,6 @@ jobs:
         with:
           distribution: 'temurin'  # 你可以选择其他发行版，如 'adopt' 或 'zulu'
           java-version: '11'
-          cache: 'maven' # 这一行能让你下次构建快到飞起
       - name: Run Java code
         run: |
           cd openai-code-review-sdk/src/main/java
