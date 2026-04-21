@@ -6,8 +6,6 @@
         <sourceOutputDir name="target/generated-sources/annotations" />
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
-        <module name="openai-code-review-test" />
-        <module name="openai-code-review-sdk" />
       </profile>
     </annotationProcessing>
   </component>
