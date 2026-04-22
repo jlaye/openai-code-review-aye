@@ -31,10 +31,11 @@ public class OpenAiCodeReview {
         System.out.println("diffCode.toString() = " + diffCode);
 
         //2. chatglm 代码评审
-
+        String content = codeReview(diffCode.toString());
+        System.out.println("content = " + content);
     }
 
-    private String codeReview(String diffCode) throws Exception {
+    private static String codeReview(String diffCode) throws Exception {
         String apiKeySecret ="d4946eef67084eb29162a4c4f7c24961.rKibnmDHtCne2ScF";
         String token = BearerTokenUtils.getToken(apiKeySecret);
         URL url = new URL("https://open.bigmodel.cn/api/paas/v4/chat/completions");
