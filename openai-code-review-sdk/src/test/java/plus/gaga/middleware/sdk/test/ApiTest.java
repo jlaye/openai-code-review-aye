@@ -1,40 +1,28 @@
-package plus.gaga.middleware.sdk;
+package plus.gaga.middleware.sdk.test;
 
 import com.alibaba.fastjson2.JSON;
+import org.junit.Test;
+import plus.gaga.middleware.sdk.domain.ChatCompletionRequest;
 import plus.gaga.middleware.sdk.domain.ChatCompletionSyncResponse;
 import plus.gaga.middleware.sdk.types.utils.BearerTokenUtils;
 
-import java.io.*;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 
-public class OpenAiCodeReview {
-    public static void main(String[] args) throws Exception {
-        System.out.println("Hello world!");
-        //1.代码检出
-        ProcessBuilder processBuilder = new ProcessBuilder("git", "diff", "HEAD~1", "HEAD");
-        //制定目录
-        processBuilder.directory(new File("."));
-        //执行
-        Process process = processBuilder.start();
-
-        BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(process.getInputStream()));
-        String line;
-
-        StringBuilder diffCode = new StringBuilder();
-        while ((line = bufferedReader.readLine()) !=null){
-            diffCode.append(line);
-        }
-        int exitCode = process.waitFor();
-        System.out.println("Exited with code = " + exitCode);
-        System.out.println("diffCode.toString() = " + diffCode);
-
-        //2. chatglm 代码评审
-
+public class ApiTest {
+    public static void main(String[] args) {
+        String apiKeySecret ="d4946eef67084eb29162a4c4f7c24961.rKibnmDHtCne2ScF";
+        String token = BearerTokenUtils.getToken(apiKeySecret);
+        System.out.println(token);
     }
 
-    private String codeReview(String diffCode) throws Exception {
+    @Test
+    public void test_http() throws Exception {
         String apiKeySecret ="d4946eef67084eb29162a4c4f7c24961.rKibnmDHtCne2ScF";
         String token = BearerTokenUtils.getToken(apiKeySecret);
         URL url = new URL("https://open.bigmodel.cn/api/paas/v4/chat/completions");
@@ -74,9 +62,10 @@ public class OpenAiCodeReview {
         }
         in.close();
         connection.disconnect();
+        System.out.println("content = " + content);
+
 
         ChatCompletionSyncResponse response = JSON.parseObject(content.toString(), ChatCompletionSyncResponse.class);
-        return response.getChoices().get(0).getMessage().getContent();
+        System.out.println("response = " + response.getChoices().get(0).getMessage().getContent());
     }
-
 }
