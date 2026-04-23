@@ -13,7 +13,7 @@ public class ApiTest {
 
     @Test
     public void test() {
-        System.out.println(Integer.parseInt("人都傻了呀 怎么回事 /写少了"));
+        System.out.println(Integer.parseInt("aaa人aaa"));
     }
 
 }
