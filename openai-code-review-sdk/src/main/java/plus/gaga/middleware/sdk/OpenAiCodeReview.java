@@ -1,6 +1,9 @@
 package plus.gaga.middleware.sdk;
 
 import com.alibaba.fastjson2.JSON;
+import org.eclipse.jgit.api.Git;
+import org.eclipse.jgit.api.errors.GitAPIException;
+import org.eclipse.jgit.transport.UsernamePasswordCredentialsProvider;
 import plus.gaga.middleware.sdk.domain.ChatCompletionRequest;
 import plus.gaga.middleware.sdk.domain.ChatCompletionSyncResponse;
 import plus.gaga.middleware.sdk.domain.Model;
@@ -10,11 +13,20 @@ import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
+import java.util.Random;
 
 public class OpenAiCodeReview {
     public static void main(String[] args) throws Exception {
-        System.out.println("Hello world!");
+        System.out.println("openai 代码评审，测试执行");
+
+        String token = System.getenv("GITHUB_TOKEN");
+        if (null == token || token.isEmpty()) {
+            throw new RuntimeException("token is null");
+        }
+
         //1.代码检出
         ProcessBuilder processBuilder = new ProcessBuilder("git", "diff", "HEAD~1", "HEAD");
         //制定目录
@@ -26,7 +38,7 @@ public class OpenAiCodeReview {
         String line;
 
         StringBuilder diffCode = new StringBuilder();
-        while ((line = bufferedReader.readLine()) !=null){
+        while ((line = bufferedReader.readLine()) != null) {
             diffCode.append(line);
         }
         int exitCode = process.waitFor();
@@ -34,43 +46,60 @@ public class OpenAiCodeReview {
         System.out.println("diffCode.toString() = " + diffCode);
 
         //2. chatglm 代码评审
-        String content = codeReview(diffCode.toString());
-        System.out.println("content = " + content);
+        String log = codeReview(diffCode.toString());
+        System.out.println("content = " + log);
+        writeLog(log,token);
+    }
+
+    private static String writeLog(String log, String token) throws Exception {
+
+        Git git = Git.cloneRepository()
+                .setURI("https://github.com/jlaye/openai-code-review-log.git")
+                .setDirectory(new File("repo"))
+                .setCredentialsProvider(new UsernamePasswordCredentialsProvider(token, ""))
+                .call();
+
+        String dateFolderName = new SimpleDateFormat("yyyy-MM-dd").format(new Date());
+        File dateFolder = new File("repo/" + dateFolderName);
+        if(!dateFolder.exists()){
+            dateFolder.mkdirs();
+        }
+        String fileName = generateRandomString(12) + ".md";
+        File newFile = new File(dateFolder,dateFolderName);
+        try (FileWriter writer = new FileWriter(newFile)){
+            writer.write(log);
+        }
+        git.add().addFilepattern(dateFolderName + "/" + fileName).call();
+        git.commit().setMessage("Add new File via GitHub Actions").call();
+        git.push().setCredentialsProvider(new UsernamePasswordCredentialsProvider(token,"")).call();
+
+        System.out.println("Changes have been pushed to the repository.");
+        return  "https://github.com/jlaye/openai-code-review-log.git/blob/master" +dateFolderName +"/" + fileName;
     }
 
     private static String codeReview(String diffCode) throws Exception {
-        String apiKeySecret ="d4946eef67084eb29162a4c4f7c24961.rKibnmDHtCne2ScF";
+        String apiKeySecret = "d4946eef67084eb29162a4c4f7c24961.rKibnmDHtCne2ScF";
         String token = BearerTokenUtils.getToken(apiKeySecret);
         URL url = new URL("https://open.bigmodel.cn/api/paas/v4/chat/completions");
         HttpURLConnection connection = (HttpURLConnection) url.openConnection();
 
         connection.setRequestMethod("POST");
-        connection.setRequestProperty("Authorization",token);
-        connection.setRequestProperty("Content-Type","application/json");
-        connection.setRequestProperty("User-Agent","Mozilla/4.0 (compatible; MSIE 5.0; Windows NT; DigExt");
+        connection.setRequestProperty("Authorization", token);
+        connection.setRequestProperty("Content-Type", "application/json");
+        connection.setRequestProperty("User-Agent", "Mozilla/4.0 (compatible; MSIE 5.0; Windows NT; DigExt");
         connection.setDoOutput(true);
 
         String code = "2+2";
 
-        String jsonInpuString = "{"
-                + "\"model\":\"glm-4-flash\","
-                + "\"messages\": ["
-                + "    {"
-                + "        \"role\": \"user\","
-                + "        \"content\": \"你是一个高级编程架构师，精通各类场景方案、架构设计和编程语言请，请您根据git diff记录，对代码做出评审。代码为: " + code + "\""
-                + "    }"
-                + "]"
-                + "}";
-
         ChatCompletionRequest chatCompletionRequest = new ChatCompletionRequest();
         chatCompletionRequest.setModel(Model.GLM_4_FLASH.getCode());
 
-        chatCompletionRequest.setMessages(new ArrayList<ChatCompletionRequest.Prompt>(){{
-            add( new ChatCompletionRequest.Prompt("user","你是一个高级编程架构师，精通各类场景方案、架构设计和编程语言请，请您根据git diff记录，对代码做出评审。代码为:"));
-            add( new ChatCompletionRequest.Prompt("user",diffCode));
+        chatCompletionRequest.setMessages(new ArrayList<ChatCompletionRequest.Prompt>() {{
+            add(new ChatCompletionRequest.Prompt("user", "你是一个高级编程架构师，精通各类场景方案、架构设计和编程语言请，请您根据git diff记录，对代码做出评审。代码为:"));
+            add(new ChatCompletionRequest.Prompt("user", diffCode));
         }});
 
-        try (OutputStream os = connection.getOutputStream()){
+        try (OutputStream os = connection.getOutputStream()) {
             byte[] input = JSON.toJSONString(chatCompletionRequest).getBytes(StandardCharsets.UTF_8);
             os.write(input);
         }
@@ -91,4 +120,13 @@ public class OpenAiCodeReview {
         return response.getChoices().get(0).getMessage().getContent();
     }
 
+    private static String generateRandomString(int length) {
+        String characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+        Random random = new Random();
+        StringBuilder sb = new StringBuilder(length);
+        for (int i = 0; i < length; i++) {
+            sb.append(characters.charAt(random.nextInt(characters.length())));
+        }
+        return sb.toString();
+    }
 }
