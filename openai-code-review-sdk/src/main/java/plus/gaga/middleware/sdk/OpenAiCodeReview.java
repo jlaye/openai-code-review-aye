@@ -74,7 +74,7 @@ public class OpenAiCodeReview {
         git.push().setCredentialsProvider(new UsernamePasswordCredentialsProvider(token,"")).call();
 
         System.out.println("Changes have been pushed to the repository.");
-        return  "https://github.com/jlaye/openai-code-review-log.git/blob/master" +dateFolderName +"/" + fileName;
+        return  "https://github.com/jlaye/openai-code-review-log/blob/master" +dateFolderName +"/" + fileName;
     }
 
     private static String codeReview(String diffCode) throws Exception {
