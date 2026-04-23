@@ -11,6 +11,7 @@ import plus.gaga.middleware.sdk.types.utils.BearerTokenUtils;
 
 import java.io.*;
 import java.net.HttpURLConnection;
+import java.net.ProtocolException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
@@ -19,6 +20,7 @@ import java.util.Date;
 import java.util.Random;
 
 public class OpenAiCodeReview {
+
     public static void main(String[] args) throws Exception {
         System.out.println("openai 代码评审，测试执行");
 
@@ -27,77 +29,58 @@ public class OpenAiCodeReview {
             throw new RuntimeException("token is null");
         }
 
-        //1.代码检出
+        // 1. 代码检出
         ProcessBuilder processBuilder = new ProcessBuilder("git", "diff", "HEAD~1", "HEAD");
-        //制定目录
         processBuilder.directory(new File("."));
-        //执行
+
         Process process = processBuilder.start();
 
-        BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+        BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
         String line;
 
         StringBuilder diffCode = new StringBuilder();
-        while ((line = bufferedReader.readLine()) != null) {
+        while ((line = reader.readLine()) != null) {
             diffCode.append(line);
         }
+
         int exitCode = process.waitFor();
-        System.out.println("Exited with code = " + exitCode);
-        System.out.println("diffCode.toString() = " + diffCode);
+        System.out.println("Exited with code:" + exitCode);
 
-        //2. chatglm 代码评审
+        System.out.println("diff code：" + diffCode.toString());
+
+        // 2. chatglm 代码评审
         String log = codeReview(diffCode.toString());
-        System.out.println("content = " + log);
-        writeLog(log,token);
-    }
+        System.out.println("code review：" + log);
 
-    private static String writeLog(String log, String token) throws Exception {
-
-        Git git = Git.cloneRepository()
-                .setURI("https://github.com/jlaye/openai-code-review-log.git")
-                .setDirectory(new File("repo"))
-                .setCredentialsProvider(new UsernamePasswordCredentialsProvider(token, ""))
-                .call();
-
-        String dateFolderName = new SimpleDateFormat("yyyy-MM-dd").format(new Date());
-        File dateFolder = new File("repo/" + dateFolderName);
-        if(!dateFolder.exists()){
-            dateFolder.mkdirs();
-        }
-        String fileName = generateRandomString(12) + ".md";
-        File newFile = new File(dateFolder,dateFolderName);
-        try (FileWriter writer = new FileWriter(newFile)){
-            writer.write(log);
-        }
-        git.add().addFilepattern(dateFolderName + "/" + fileName).call();
-        git.commit().setMessage("Add new File via GitHub Actions").call();
-        git.push().setCredentialsProvider(new UsernamePasswordCredentialsProvider(token,"")).call();
-
-        System.out.println("Changes have been pushed to the repository.");
-        return  "https://github.com/jlaye/openai-code-review-log/blob/master/" +dateFolderName +"/" + fileName;
+        // 3. 写入评审日志
+        String logUrl = writeLog(token, log);
+        System.out.println("writeLog：" + logUrl);
     }
 
     private static String codeReview(String diffCode) throws Exception {
-        String apiKeySecret = "d4946eef67084eb29162a4c4f7c24961.rKibnmDHtCne2ScF";
+
+        String apiKeySecret = "c78fbacd3e10118ad5649d7a54a3a163.UunYDBxpzeClvSKZ";
         String token = BearerTokenUtils.getToken(apiKeySecret);
+
         URL url = new URL("https://open.bigmodel.cn/api/paas/v4/chat/completions");
         HttpURLConnection connection = (HttpURLConnection) url.openConnection();
 
         connection.setRequestMethod("POST");
-        connection.setRequestProperty("Authorization", token);
+        connection.setRequestProperty("Authorization", "Bearer " + token);
         connection.setRequestProperty("Content-Type", "application/json");
-        connection.setRequestProperty("User-Agent", "Mozilla/4.0 (compatible; MSIE 5.0; Windows NT; DigExt");
+        connection.setRequestProperty("User-Agent", "Mozilla/4.0 (compatible; MSIE 5.0; Windows NT; DigExt)");
         connection.setDoOutput(true);
-
-        String code = "2+2";
 
         ChatCompletionRequest chatCompletionRequest = new ChatCompletionRequest();
         chatCompletionRequest.setModel(Model.GLM_4_FLASH.getCode());
+        chatCompletionRequest.setMessages(new ArrayList<ChatCompletionRequest.Prompt>() {
+            private static final long serialVersionUID = -7988151926241837899L;
 
-        chatCompletionRequest.setMessages(new ArrayList<ChatCompletionRequest.Prompt>() {{
-            add(new ChatCompletionRequest.Prompt("user", "你是一个高级编程架构师，精通各类场景方案、架构设计和编程语言请，请您根据git diff记录，对代码做出评审。代码为:"));
-            add(new ChatCompletionRequest.Prompt("user", diffCode));
-        }});
+            {
+                add(new ChatCompletionRequest.Prompt("user", "你是一个高级编程架构师，精通各类场景方案、架构设计和编程语言请，请您根据git diff记录，对代码做出评审。代码如下:"));
+                add(new ChatCompletionRequest.Prompt("user", diffCode));
+            }
+        });
 
         try (OutputStream os = connection.getOutputStream()) {
             byte[] input = JSON.toJSONString(chatCompletionRequest).getBytes(StandardCharsets.UTF_8);
@@ -109,15 +92,47 @@ public class OpenAiCodeReview {
 
         BufferedReader in = new BufferedReader(new InputStreamReader(connection.getInputStream()));
         String inputLine;
+
         StringBuilder content = new StringBuilder();
         while ((inputLine = in.readLine()) != null) {
             content.append(inputLine);
         }
+
         in.close();
         connection.disconnect();
 
+        System.out.println("评审结果：" + content.toString());
+
         ChatCompletionSyncResponse response = JSON.parseObject(content.toString(), ChatCompletionSyncResponse.class);
         return response.getChoices().get(0).getMessage().getContent();
+    }
+
+    private static String writeLog(String token, String log) throws Exception {
+        Git git = Git.cloneRepository()
+                .setURI("https://github.com/jlaye/openai-code-review-log.git")
+                .setDirectory(new File("repo"))
+                .setCredentialsProvider(new UsernamePasswordCredentialsProvider(token, ""))
+                .call();
+
+        String dateFolderName = new SimpleDateFormat("yyyy-MM-dd").format(new Date());
+        File dateFolder = new File("repo/" + dateFolderName);
+        if (!dateFolder.exists()) {
+            dateFolder.mkdirs();
+        }
+
+        String fileName = generateRandomString(12) + ".md";
+        File newFile = new File(dateFolder, fileName);
+        try (FileWriter writer = new FileWriter(newFile)) {
+            writer.write(log);
+        }
+
+        git.add().addFilepattern(dateFolderName + "/" + fileName).call();
+        git.commit().setMessage("Add new file via GitHub Actions").call();
+        git.push().setCredentialsProvider(new UsernamePasswordCredentialsProvider(token, "")).call();
+
+        System.out.println("Changes have been pushed to the repository.");
+
+        return "https://github.com/jlaye/openai-code-review-log/blob/master/" + dateFolderName + "/" + fileName;
     }
 
     private static String generateRandomString(int length) {
@@ -129,4 +144,5 @@ public class OpenAiCodeReview {
         }
         return sb.toString();
     }
+
 }
