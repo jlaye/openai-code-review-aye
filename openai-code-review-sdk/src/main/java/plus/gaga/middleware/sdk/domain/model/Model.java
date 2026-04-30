@@ -1,4 +1,4 @@
-package plus.gaga.middleware.sdk.domain;
+package plus.gaga.middleware.sdk.domain.model;
 
 public enum Model {
 

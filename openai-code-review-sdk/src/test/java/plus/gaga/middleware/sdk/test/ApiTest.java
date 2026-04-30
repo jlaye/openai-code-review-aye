@@ -2,15 +2,13 @@ package plus.gaga.middleware.sdk.test;
 
 import com.alibaba.fastjson2.JSON;
 import org.junit.Test;
-import plus.gaga.middleware.sdk.domain.ChatCompletionRequest;
-import plus.gaga.middleware.sdk.domain.ChatCompletionSyncResponse;
+import plus.gaga.middleware.sdk.infrastructure.openai.ChatCompletionSyncResponse;
 import plus.gaga.middleware.sdk.types.utils.BearerTokenUtils;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 
