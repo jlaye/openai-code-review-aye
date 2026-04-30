@@ -2,6 +2,8 @@ package plus.gaga.middleware.sdk.infrastructure.openai.impl;
 
 import com.alibaba.fastjson2.JSON;
 import plus.gaga.middleware.sdk.infrastructure.openai.IOpenAI;
+import plus.gaga.middleware.sdk.infrastructure.openai.dto.ChatCompletionRequestDTO;
+import plus.gaga.middleware.sdk.infrastructure.openai.dto.ChatCompletionSyncResponseDTO;
 import plus.gaga.middleware.sdk.types.utils.BearerTokenUtils;
 
 import java.io.BufferedReader;
